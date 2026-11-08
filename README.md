@@ -12,6 +12,7 @@ external input method framework.
 | `kana` | Japanese | Romaji to hiragana. Space converts to kanji, including verbs with their okurigana; katakana is always offered. `nn` or `n'` types `ん`. |
 | `hangul` | Korean | Dubeolsik (two-set) layout, with syllable composition and compound vowels and finals. |
 | `telex` | Vietnamese | Telex: `s f r x j` for the tones, `z` to remove one, `aa ee oo aw ow uw dd` for the letters. |
+| `simlish` | Simlish | Every word turns into Simlish when you finish it; `hello` is `sul sul`, `goodbye` is `dag dag`. |
 
 While candidates are shown, Space or Down selects the next one, Up the
 previous one, Page Up and Page Down turn the page, a digit picks from the

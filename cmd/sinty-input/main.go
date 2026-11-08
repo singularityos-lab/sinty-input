@@ -13,6 +13,7 @@ import (
 	"github.com/singularityos-lab/sinty-input/internal/kana"
 	"github.com/singularityos-lab/sinty-input/internal/pinyin"
 	"github.com/singularityos-lab/sinty-input/internal/service"
+	"github.com/singularityos-lab/sinty-input/internal/simlish"
 	"github.com/singularityos-lab/sinty-input/internal/telex"
 )
 
@@ -23,7 +24,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	engines := []engine.Engine{pinyin.New(), kana.New(), hangul.New(), telex.New()}
+	engines := []engine.Engine{pinyin.New(), kana.New(), hangul.New(), telex.New(), simlish.New()}
 	if _, err := service.Export(conn, engines); err != nil {
 		log.Fatal(err)
 	}

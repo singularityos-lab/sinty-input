@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=dev.sinty.Input1
+Exec=/usr/libexec/sinty-input

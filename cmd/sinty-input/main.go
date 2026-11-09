@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/godbus/dbus/v5"
 
 	"github.com/singularityos-lab/sinty-input/internal/bijoy"
+	"github.com/singularityos-lab/sinty-input/internal/cli"
 	"github.com/singularityos-lab/sinty-input/internal/engine"
 	"github.com/singularityos-lab/sinty-input/internal/hangul"
 	"github.com/singularityos-lab/sinty-input/internal/kana"
@@ -19,6 +21,9 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "dict" {
+		os.Exit(cli.Dict(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	log.SetFlags(0)
 	log.SetPrefix("sinty-input: ")
 	conn, err := dbus.ConnectSessionBus()

@@ -1,6 +1,7 @@
 package kana
 
 import (
+	_ "github.com/singularityos-lab/sinty-input/internal/dict/dicttest"
 	"testing"
 
 	"github.com/singularityos-lab/sinty-input/internal/engine"

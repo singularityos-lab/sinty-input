@@ -53,12 +53,72 @@ make test
 make install DESTDIR=...
 ```
 
-The dictionaries in `internal/dict/data` are built into the binary.
-`make dict` downloads their sources and generates them again; see
-[NOTICE](internal/dict/data/NOTICE) for where they come from and their
-licenses.
+`make dict` downloads the sources of the shipped dictionaries and generates
+them again into `dict`; see [NOTICE](dict/NOTICE) for where they come from
+and their licenses.
+
+## Dictionaries
+
+Dictionaries are files, not part of the binary. They are looked up by name
+in `~/.local/share/sinty-input/dict` first and then in
+`sinty-input/dict` under every directory of `XDG_DATA_DIRS`
+(`/usr/local/share` and `/usr/share` by default), so a file in the home
+folder replaces a system one with the same name. `SINTY_INPUT_DICT_PATH`
+replaces the whole search path.
+
+A dictionary is a UTF-8 text file named `NAME.sdict`, or `NAME.sdict.gz`
+when compressed with gzip. It starts with header lines, followed by one
+entry per line:
+
+```
+@format sinty-dict 1
+@name Wubi 86
+@type table
+@language zh-Hans
+@keys abcdefghijklmnopqrstuvwxy
+@length 4
+@wildcard z
+@autocommit yes
+@license LGPL-3.0-only
+@source https://github.com/rime/rime-wubi
+a	工	99454797
+a	戈
+aa	式	12
+```
+
+Each entry is a code, a tab, the text it types and, optionally, a tab and
+an integer weight. Higher weights are offered first, entries with the same
+weight keep the order of the file, and an entry listed twice keeps its
+highest weight. Lines starting with `#` and empty lines are ignored.
+
+| Header | |
+|---|---|
+| `@format` | Always `sinty-dict 1`. Required, and must come first. |
+| `@name` | The name shown in Settings. |
+| `@type` | `phonetic`, `table` or `conversion`. |
+| `@language` | A BCP 47 tag, such as `zh-Hans`, `zh-Hant`, `yue` or `ja`. |
+| `@license` | An SPDX identifier. |
+| `@source` | Where the data comes from. |
+| `@keys` | Table: the keys that make up codes. |
+| `@length` | Table: the longest code. |
+| `@wildcard` | Table: a key that matches any one key. |
+| `@autocommit` | Table: `yes` types the only candidate of a full code at once. |
+| `@display` | Table: `key=label` pairs shown in place of the keys. |
+| `@phrase` | Table: how to build the code of a new phrase, as `length:formula` rules. `4+:AaBaCaZa` takes, for phrases of four characters or more, the first key of the first, second and third character and of the last one. |
+
+In a phonetic dictionary the code is the reading, syllables separated by
+single spaces and without tones. In a conversion dictionary the code is the
+text to replace and the entry is its replacement.
+
+`sinty-input dict import` converts Rime (`.dict.yaml`) and fcitx table
+files into this format. It only imports files whose license is compatible:
+
+```sh
+sinty-input dict import -license LGPL-3.0-only -name "Wubi 86" wubi86.dict.yaml \
+  ~/.local/share/sinty-input/dict/my-wubi.sdict.gz
+```
 
 ## License
 
 GPL-3.0-only. The dictionaries keep their own licenses, listed in
-[NOTICE](internal/dict/data/NOTICE).
+[NOTICE](dict/NOTICE).

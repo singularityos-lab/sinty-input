@@ -1,6 +1,7 @@
 package pinyin
 
 import (
+	_ "github.com/singularityos-lab/sinty-input/internal/dict/dicttest"
 	"reflect"
 	"testing"
 

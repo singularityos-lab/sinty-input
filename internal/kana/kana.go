@@ -41,7 +41,7 @@ func candidates(reading string) []string {
 			list = append(list, s)
 		}
 	}
-	whole := dict.Japanese.Lookup(reading)
+	whole := dict.Get("ja-kana").Words(reading)
 	var inflected []string
 	runes := []rune(reading)
 	for n := 1; n <= 4 && n < len(runes); n++ {
@@ -50,7 +50,7 @@ func candidates(reading string) []string {
 		if c == "" {
 			continue
 		}
-		for _, w := range dict.Japanese.Lookup(stem + c) {
+		for _, w := range dict.Get("ja-kana").Words(stem + c) {
 			inflected = append(inflected, w+tail)
 		}
 	}
@@ -71,13 +71,13 @@ func candidates(reading string) []string {
 func segment(runes []rune) string {
 	var out []rune
 	for len(runes) > 0 {
-		n := min(len(runes), dict.Japanese.Longest())
+		n := min(len(runes), dict.Get("ja-kana").Longest())
 		for ; n > 1; n-- {
-			if dict.Japanese.Lookup(string(runes[:n])) != nil {
+			if dict.Get("ja-kana").Words(string(runes[:n])) != nil {
 				break
 			}
 		}
-		if c := dict.Japanese.Lookup(string(runes[:n])); c != nil {
+		if c := dict.Get("ja-kana").Words(string(runes[:n])); c != nil {
 			out = append(out, []rune(c[0])...)
 		} else {
 			out = append(out, runes[0])

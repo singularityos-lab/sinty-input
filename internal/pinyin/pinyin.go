@@ -18,7 +18,7 @@ var (
 
 func loadSyllables() {
 	syllables, partials = map[string]bool{}, map[string][]string{}
-	dict.Chinese.Each(func(key string, _ []string) {
+	dict.Get("zh-pinyin").Each(func(key string, _ []dict.Entry) {
 		if !strings.Contains(key, " ") {
 			syllables[key] = true
 		}
@@ -127,10 +127,10 @@ func best(segs []string) string {
 		score[i] = unreachable
 		for j := 0; j < i; j++ {
 			key := strings.Join(segs[j:i], " ")
-			if score[j] == unreachable || dict.Chinese.Lookup(key) == nil {
+			if score[j] == unreachable || dict.Get("zh-pinyin").Words(key) == nil {
 				continue
 			}
-			if s := score[j] + dict.Chinese.Score(key) - corpus; s > score[i] {
+			if s := score[j] + dict.Get("zh-pinyin").Score(key) - corpus; s > score[i] {
 				score[i], from[i] = s, j
 			}
 		}
@@ -140,7 +140,7 @@ func best(segs []string) string {
 	}
 	var words []string
 	for i := n; i > 0; i = from[i] {
-		words = append([]string{dict.Chinese.Lookup(strings.Join(segs[from[i]:i], " "))[0]}, words...)
+		words = append([]string{dict.Get("zh-pinyin").Words(strings.Join(segs[from[i]:i], " "))[0]}, words...)
 	}
 	return strings.Join(words, "")
 }
@@ -161,17 +161,17 @@ func (e *Engine) refresh() {
 	if !complete {
 		whole--
 	}
-	if whole > 1 && dict.Chinese.Lookup(strings.Join(segs[:whole], " ")) == nil {
+	if whole > 1 && dict.Get("zh-pinyin").Words(strings.Join(segs[:whole], " ")) == nil {
 		add(best(segs[:whole]), whole)
 	}
 	for n := whole; n >= 1; n-- {
-		for _, w := range dict.Chinese.Lookup(strings.Join(segs[:n], " ")) {
+		for _, w := range dict.Get("zh-pinyin").Words(strings.Join(segs[:n], " ")) {
 			add(w, n)
 		}
 	}
 	if whole == 0 && len(segs) == 1 {
 		for _, s := range partials[segs[0]] {
-			words := dict.Chinese.Lookup(s)
+			words := dict.Get("zh-pinyin").Words(s)
 			for _, w := range words[:min(2, len(words))] {
 				add(w, 1)
 			}

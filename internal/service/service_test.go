@@ -1,6 +1,7 @@
 package service
 
 import (
+	_ "github.com/singularityos-lab/sinty-input/internal/dict/dicttest"
 	"testing"
 
 	"github.com/godbus/dbus/v5"

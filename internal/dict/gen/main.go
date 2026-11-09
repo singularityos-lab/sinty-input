@@ -16,30 +16,14 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/singularityos-lab/sinty-input/internal/dict"
+	"github.com/singularityos-lab/sinty-input/internal/dict/importer"
 )
 
-func writeTable(path string, keys []string, values map[string][]string, scores map[string][]string) error {
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	z, err := gzip.NewWriterLevel(f, gzip.BestCompression)
-	if err != nil {
-		return err
-	}
-	w := bufio.NewWriter(z)
-	for _, k := range keys {
-		if scores != nil {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", k, strings.Join(values[k], "/"), strings.Join(scores[k], ","))
-		} else {
-			fmt.Fprintf(w, "%s\t%s\n", k, strings.Join(values[k], "/"))
-		}
-	}
-	if err := w.Flush(); err != nil {
-		return err
-	}
-	return z.Close()
+func save(d *dict.Dict, out, name string) error {
+	log.Printf("%s: %d entries", name, d.Len())
+	return d.Save(filepath.Join(out, name+dict.ExtGz))
 }
 
 func kanaKey(key string, okuri bool) bool {
@@ -106,8 +90,14 @@ func japanese(src, out string) error {
 		}
 	}
 	sort.Strings(keys)
-	log.Printf("ja: %d readings", len(keys))
-	return writeTable(out, keys, values, nil)
+	d := dict.New("", map[string]string{"name": "Japanese (Kana)", "type": "phonetic", "language": "ja",
+		"license": "GPL-2.0-or-later", "source": "https://github.com/skk-dev/dict"})
+	for _, k := range keys {
+		for _, v := range values[k] {
+			d.Add(k, v, 0)
+		}
+	}
+	return save(d, out, "ja-kana")
 }
 
 var cedictLine = regexp.MustCompile(`^(\S+) (\S+) \[([^\]]+)\] /(.*)/$`)
@@ -248,9 +238,15 @@ func chinese(cedict, unihan, words, out string) error {
 	if err := s.Err(); err != nil {
 		return err
 	}
-	values, scores := map[string][]string{}, map[string][]string{}
 	keys := make([]string, 0, len(entries))
-	for k, list := range entries {
+	for k := range entries {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	d := dict.New("", map[string]string{"name": "Chinese (Pinyin)", "type": "phonetic", "language": "zh-Hans",
+		"license": "CC-BY-SA-4.0", "source": "https://www.mdbg.net/chinese/dictionary?page=cc-cedict"})
+	for _, k := range keys {
+		list := entries[k]
 		sort.SliceStable(list, func(i, j int) bool {
 			if list[i].score != list[j].score {
 				return list[i].score > list[j].score
@@ -258,31 +254,191 @@ func chinese(cedict, unihan, words, out string) error {
 			return list[i].order < list[j].order
 		})
 		for _, w := range list {
-			values[k] = append(values[k], w.word)
-			scores[k] = append(scores[k], strconv.Itoa(max(0, int(math.Round(w.score*10)))))
+			d.Add(k, w.word, max(0, int(math.Round(w.score*10))))
 		}
-		keys = append(keys, k)
 	}
-	sort.Strings(keys)
-	log.Printf("zh: %d readings", len(keys))
-	return writeTable(out, keys, values, scores)
+	return save(d, out, "zh-pinyin")
+}
+
+type table struct {
+	file, format, name, title, language, keys, length, wildcard, autocommit, license, source string
+}
+
+var tables = []table{
+	{"wubi86.dict.yaml", "rime", "zh-wubi86", "Wubi 86", "zh-Hans", "abcdefghijklmnopqrstuvwxy", "4", "z", "yes", "LGPL-3.0-only", "https://github.com/rime/rime-wubi"},
+	{"wubi98.txt", "fcitx", "zh-wubi98", "Wubi 98", "zh-Hans", "", "", "z", "yes", "LicenseRef-public-domain", "https://github.com/fcitx/fcitx5-table-extra"},
+	{"xinshijiwubi.dict.yaml", "rime", "zh-wubi-ng", "Wubi New Generation", "zh-Hans", "abcdefghijklmnopqrstuvwxy", "4", "z", "yes", "LGPL-3.0-only", "https://github.com/Pioneer-Linzi/xinshijiwubi"},
+	{"cangjie3.txt", "fcitx", "zh-cangjie3", "Cangjie 3", "zh-Hant", "", "", "*", "no", "LicenseRef-public-domain", "https://github.com/fcitx/fcitx5-table-extra"},
+	{"cangjie5.txt", "fcitx", "zh-cangjie5", "Cangjie 5", "zh-Hant", "", "", "*", "no", "LicenseRef-public-domain", "https://github.com/fcitx/fcitx5-table-extra"},
+	{"quick5.txt", "fcitx", "zh-quick", "Quick", "zh-Hant", "", "", "*", "no", "LicenseRef-public-domain", "https://github.com/fcitx/fcitx5-table-extra"},
+	{"array30.txt", "fcitx", "zh-array30", "Array 30", "zh-Hant", "", "", "*", "no", "LicenseRef-public-domain", "https://github.com/fcitx/fcitx5-table-extra"},
+	{"zhengma.txt", "fcitx", "zh-zhengma", "Zhengma", "zh-Hans", "", "", "*", "yes", "LicenseRef-public-domain", "https://github.com/fcitx/fcitx5-table-extra"},
+}
+
+func importTable(src string, t table, out string) error {
+	f, err := os.Open(filepath.Join(src, t.file))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var d *dict.Dict
+	if t.format == "rime" {
+		d, err = importer.Rime(f)
+	} else {
+		d, err = importer.Fcitx(f)
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", t.file, err)
+	}
+	delete(d.Meta, "rime")
+	set := func(k, v string) {
+		if v != "" {
+			d.Meta[k] = v
+		}
+	}
+	set("name", t.title)
+	set("type", "table")
+	set("language", t.language)
+	set("keys", t.keys)
+	set("length", t.length)
+	set("wildcard", t.wildcard)
+	set("autocommit", t.autocommit)
+	set("license", t.license)
+	set("source", t.source)
+	if t.format == "rime" {
+		var drop []dict.Entry
+		d.Each(func(code string, list []dict.Entry) {
+			if strings.HasPrefix(code, "z") {
+				drop = append(drop, list...)
+			}
+		})
+		for _, e := range drop {
+			d.Remove(e.Code, e.Text)
+		}
+	}
+	return save(d, out, t.name)
+}
+
+func toneless(code string) string {
+	parts := strings.Fields(code)
+	for i, p := range parts {
+		parts[i] = strings.TrimRight(p, "0123456789")
+	}
+	return strings.Join(parts, " ")
+}
+
+func cantonese(src, out string) error {
+	freq, err := wordFrequencies(filepath.Join(src, "essay-cantonese.txt"))
+	if err != nil {
+		return err
+	}
+	d := dict.New("", map[string]string{"name": "Cantonese (Jyutping)", "type": "phonetic", "language": "yue",
+		"license": "CC-BY-4.0", "source": "https://github.com/rime/rime-cantonese"})
+	for _, file := range []string{"jyut6ping3.chars.dict.yaml", "jyut6ping3.words.dict.yaml"} {
+		f, err := os.Open(filepath.Join(src, file))
+		if err != nil {
+			return err
+		}
+		part, err := importer.Rime(f)
+		f.Close()
+		if err != nil {
+			return fmt.Errorf("%s: %w", file, err)
+		}
+		part.Each(func(code string, list []dict.Entry) {
+			key := toneless(code)
+			for _, e := range list {
+				if strings.ContainsAny(key, "0123456789") || key == "" {
+					continue
+				}
+				w := max(0, int(math.Round(math.Log1p(freq[e.Text])*10)))
+				if e.Weight > 0 && w == 0 {
+					w = 1
+				}
+				d.Add(key, e.Text, w)
+			}
+		})
+	}
+	return save(d, out, "yue-jyutping")
+}
+
+type conversion struct {
+	name, title string
+	files       []string
+}
+
+var conversions = []conversion{
+	{"zh-s2t", "Simplified to Traditional", []string{"STPhrases.txt", "STCharacters.txt"}},
+	{"zh-t2s", "Traditional to Simplified", []string{"TSPhrases.txt", "TSCharacters.txt"}},
+	{"zh-tw-variants", "Taiwan Variants", []string{"TWVariants.txt"}},
+	{"zh-tw-phrases", "Taiwan Phrases", []string{"TWPhrases.txt"}},
+	{"zh-hk-variants", "Hong Kong Variants", []string{"HKVariants.txt"}},
+}
+
+func openccTable(src string, c conversion, out string) error {
+	d := dict.New("", map[string]string{"name": c.title, "type": "conversion", "language": "zh",
+		"license": "Apache-2.0", "source": "https://github.com/BYVoid/OpenCC"})
+	for _, file := range c.files {
+		f, err := os.Open(filepath.Join(src, file))
+		if err != nil {
+			return err
+		}
+		s := bufio.NewScanner(f)
+		s.Buffer(make([]byte, 1<<16), 1<<20)
+		for s.Scan() {
+			line := s.Text()
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			k, v, ok := strings.Cut(line, "\t")
+			if !ok {
+				continue
+			}
+			values := strings.Fields(v)
+			for i, x := range values {
+				d.Add(k, x, len(values)-i)
+			}
+		}
+		f.Close()
+		if err := s.Err(); err != nil {
+			return err
+		}
+	}
+	return save(d, out, c.name)
 }
 
 func main() {
-	skk := flag.String("skk", "", "SKK-JISYO.L.json")
-	cedict := flag.String("cedict", "", "cedict_1_0_ts_utf-8_mdbg.txt.gz")
-	unihan := flag.String("unihan", "", "Unihan_Readings.txt")
-	words := flag.String("words", "", "jieba dict.txt")
-	out := flag.String("out", "internal/dict/data", "output directory")
+	src := flag.String("sources", "sources", "directory with the downloaded sources")
+	out := flag.String("out", "dict", "output directory")
+	only := flag.String("only", "", "comma separated dictionary names to build")
 	flag.Parse()
-	if *skk != "" {
-		if err := japanese(*skk, filepath.Join(*out, "ja.txt.gz")); err != nil {
-			log.Fatal(err)
+	want := func(name string) bool {
+		if *only == "" {
+			return true
+		}
+		for _, n := range strings.Split(*only, ",") {
+			if n == name {
+				return true
+			}
+		}
+		return false
+	}
+	run := func(name string, fn func() error) {
+		if !want(name) {
+			return
+		}
+		if err := fn(); err != nil {
+			log.Fatalf("%s: %v", name, err)
 		}
 	}
-	if *cedict != "" {
-		if err := chinese(*cedict, *unihan, *words, filepath.Join(*out, "zh.txt.gz")); err != nil {
-			log.Fatal(err)
-		}
+	run("ja-kana", func() error { return japanese(filepath.Join(*src, "SKK-JISYO.L.json"), *out) })
+	run("zh-pinyin", func() error {
+		return chinese(filepath.Join(*src, "cedict.txt.gz"), filepath.Join(*src, "Unihan_Readings.txt"), filepath.Join(*src, "dict.txt"), *out)
+	})
+	for _, t := range tables {
+		run(t.name, func() error { return importTable(*src, t, *out) })
+	}
+	run("yue-jyutping", func() error { return cantonese(*src, *out) })
+	for _, c := range conversions {
+		run(c.name, func() error { return openccTable(*src, c, *out) })
 	}
 }

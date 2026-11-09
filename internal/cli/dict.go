@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/singularityos-lab/sinty-input/internal/dict"
@@ -67,77 +66,20 @@ func importFile(args []string, stderr io.Writer) error {
 	if !strings.HasSuffix(out, dict.Ext) && !strings.HasSuffix(out, dict.ExtGz) {
 		return fmt.Errorf("%s must end in %s or %s", out, dict.Ext, dict.ExtGz)
 	}
-	if !importer.Compatible(*license) {
-		known := importer.Licenses()
-		sort.Strings(known)
-		return fmt.Errorf("the license %q is not one that can be imported; give -license with one of: %s", *license, strings.Join(known, ", "))
-	}
 	data, err := os.ReadFile(in)
 	if err != nil {
 		return err
 	}
-	if *format == "" {
-		*format = importer.Detect(data[:min(len(data), 4096)])
-	}
-	var d *dict.Dict
-	r := strings.NewReader(string(data))
-	switch *format {
-	case "rime":
-		d, err = importer.Rime(r)
-	case "fcitx":
-		d, err = importer.Fcitx(r)
-	case "sinty":
-		d, err = dict.Read(r)
-	default:
-		return errors.New("unknown input format; give -format rime or -format fcitx")
-	}
+	d, err := importer.Import(data, importer.Options{
+		Format: *format, Name: *name, Type: *kind, Language: *language, License: *license,
+		Source: *source, Keys: *keys, Length: *length, Wildcard: *wildcard, Fallback: dict.NameOf(out),
+	})
 	if err != nil {
 		return err
-	}
-	delete(d.Meta, "rime")
-	set := func(k, v string) {
-		if v != "" {
-			d.Meta[k] = v
-		}
-	}
-	set("name", *name)
-	set("type", *kind)
-	set("language", *language)
-	set("license", *license)
-	set("source", *source)
-	set("keys", *keys)
-	set("length", *length)
-	set("wildcard", *wildcard)
-	if d.Meta["name"] == "" {
-		d.Meta["name"] = dict.NameOf(out)
-	}
-	if d.Meta["type"] == "table" && d.Meta["keys"] == "" {
-		d.Meta["keys"] = keysOf(d)
-	}
-	if d.Meta["type"] == "table" && d.Meta["length"] == "" {
-		d.Meta["length"] = fmt.Sprint(d.Longest())
-	}
-	if d.Len() == 0 {
-		return errors.New("no entries found")
 	}
 	if err := d.Save(out); err != nil {
 		return err
 	}
 	fmt.Fprintf(stderr, "%s: %d entries\n", out, d.Len())
 	return nil
-}
-
-func keysOf(d *dict.Dict) string {
-	seen := map[rune]bool{}
-	for _, c := range d.Codes() {
-		for _, r := range c {
-			seen[r] = true
-		}
-	}
-	var out []rune
-	for r := range seen {
-		out = append(out, r)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return string(out)
 }

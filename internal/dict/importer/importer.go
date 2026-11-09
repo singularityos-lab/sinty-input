@@ -17,6 +17,7 @@ var compatible = map[string]bool{
 	"CC-BY-4.0": true, "CC-BY-SA-4.0": true,
 	"GPL-2.0-or-later": true, "GPL-3.0-only": true, "GPL-3.0-or-later": true,
 	"LGPL-2.1-or-later": true, "LGPL-3.0-only": true, "LGPL-3.0-or-later": true,
+	"LicenseRef-own": true,
 }
 
 func Compatible(license string) bool {

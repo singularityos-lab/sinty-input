@@ -1,13 +1,18 @@
 package service
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/godbus/dbus/v5"
 
 	"github.com/singularityos-lab/sinty-input/internal/config"
 	"github.com/singularityos-lab/sinty-input/internal/convert"
 	"github.com/singularityos-lab/sinty-input/internal/dict"
+	"github.com/singularityos-lab/sinty-input/internal/dict/importer"
 	"github.com/singularityos-lab/sinty-input/internal/engine"
 	"github.com/singularityos-lab/sinty-input/internal/userdict"
 )
@@ -276,4 +281,73 @@ func (s *Service) Reload() *dbus.Error {
 	s.engines = engines
 	s.active = s.find(active)
 	return nil
+}
+
+func slug(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case r < unicode.MaxASCII && (unicode.IsLetter(r) || unicode.IsDigit(r)):
+			b.WriteRune(r)
+		case b.Len() > 0 && !strings.HasSuffix(b.String(), "-"):
+			b.WriteByte('-')
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+func (s *Service) AddDictionary(path, name, language, license string) (string, *dbus.Error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", dbus.MakeFailedError(err)
+	}
+	base := slug(name)
+	if base == "" {
+		base = slug(dict.NameOf(path))
+	}
+	if base == "" {
+		base = "table"
+	}
+	d, err := importer.Import(data, importer.Options{Name: name, Language: language, License: license, Fallback: dict.NameOf(path)})
+	if err != nil {
+		return "", dbus.NewError(Iface+".Error.Import", []interface{}{err.Error()})
+	}
+	if d.Meta["type"] != "table" {
+		return "", invalid("type", d.Meta["type"])
+	}
+	dir := filepath.Join(dict.UserDir(), "dict")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", dbus.MakeFailedError(err)
+	}
+	id := base
+	for i := 2; ; i++ {
+		if _, taken := dict.Find(id); !taken {
+			break
+		}
+		id = fmt.Sprintf("%s-%d", base, i)
+	}
+	if err := d.Save(filepath.Join(dir, id+dict.ExtGz)); err != nil {
+		return "", dbus.MakeFailedError(err)
+	}
+	dict.Forget(id)
+	s.Reload()
+	return "table-" + id, nil
+}
+
+func (s *Service) RemoveDictionary(name string) *dbus.Error {
+	for _, info := range dict.Catalog() {
+		if info.Name != name {
+			continue
+		}
+		if !info.User {
+			return invalid("system dictionary", name)
+		}
+		if err := os.Remove(info.Path); err != nil {
+			return dbus.MakeFailedError(err)
+		}
+		dict.Forget(name)
+		s.Reload()
+		return nil
+	}
+	return invalid("dictionary", name)
 }

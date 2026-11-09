@@ -158,4 +158,39 @@ func TestSettingsOverTheBus(t *testing.T) {
 	if !found {
 		t.Fatal("a table added by the user becomes a method after Reload")
 	}
+
+	fcitx := filepath.Join(t.TempDir(), "mine.txt")
+	os.WriteFile(fcitx, []byte("KeyCode=abcdefghijklmnopqrstuvwxyz\nLength=4\n[Data]\nxy 你\nxyz 你们\n"), 0o644)
+	if c := obj.Call(Iface+".AddDictionary", 0, fcitx, "Mine", "zh-Hans", "LicenseRef-proprietary"); c.Err == nil {
+		t.Fatal("an incompatible license was accepted")
+	}
+	var added string
+	call("AddDictionary", []interface{}{&added}, fcitx, "Mine Too", "zh-Hans", "LicenseRef-own")
+	if added != "table-mine-too" {
+		t.Fatalf("added %q", added)
+	}
+	call("Methods", []interface{}{&methods})
+	found = false
+	for _, m := range methods {
+		if m.Name == added && m.Language == "zh-Hans" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("the imported table is a method right away")
+	}
+	call("SelectEngine", nil, added)
+	for _, k := range "xyz " {
+		call("ProcessKey", []interface{}{&handled}, uint32(k), uint32(0), uint32(0), false)
+	}
+	if c := obj.Call(Iface+".RemoveDictionary", 0, "wubi86"); c.Err == nil {
+		t.Fatal("a system dictionary was removed")
+	}
+	call("RemoveDictionary", nil, "mine-too")
+	call("Methods", []interface{}{&methods})
+	for _, m := range methods {
+		if m.Name == added {
+			t.Fatal("removed table still listed")
+		}
+	}
 }

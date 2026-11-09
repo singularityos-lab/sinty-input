@@ -64,6 +64,8 @@ The service owns `dev.sinty.Input1` on the session bus at
 | `UserEntries(name)` | in `s`, out `a(ssi)` | What a method has learned: code, text and weight. |
 | `UserSet(name, code, text, weight)`, `UserRemove(name, code, text)`, `UserClear(name)` | | Edits what a method has learned. |
 | `UserExport(name, path)`, `UserImport(name, path)` | in `ss`, out of import `u` | Saves to or merges from a dictionary file. |
+| `AddDictionary(path, name, language, license)` | in `ssss`, out `s` | Imports a Rime, fcitx or sinty table into the user's dictionaries and returns the new method's name. |
+| `RemoveDictionary(name)` | in `s` | Deletes one of the user's dictionaries. |
 | `Reload()` | | Looks for dictionaries again, after one is added or removed. |
 
 ```sh
@@ -146,7 +148,8 @@ single spaces and without tones. In a conversion dictionary the code is the
 text to replace and the entry is its replacement.
 
 `sinty-input dict import` converts Rime (`.dict.yaml`) and fcitx table
-files into this format. It only imports files whose license is compatible:
+files into this format. It only imports files whose license is compatible;
+`LicenseRef-own` marks a table you made yourself:
 
 ```sh
 sinty-input dict import -license LGPL-3.0-only -name "Wubi 86" wubi86.dict.yaml \

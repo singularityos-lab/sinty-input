@@ -21,6 +21,7 @@ vet:
 install: static
 	install -Dm755 $(BIN) $(DESTDIR)$(PREFIX)/libexec/$(BIN)
 	install -Dm644 packaging/dev.sinty.Input1.service $(DESTDIR)$(PREFIX)/share/dbus-1/services/dev.sinty.Input1.service
+	install -Dm644 packaging/sinty-input.xml $(DESTDIR)$(PREFIX)/share/ibus/component/sinty-input.xml
 	install -d $(DESTDIR)$(PREFIX)/share/sinty-input/dict
 	install -m644 dict/*.sdict.gz dict/NOTICE $(DESTDIR)$(PREFIX)/share/sinty-input/dict/
 

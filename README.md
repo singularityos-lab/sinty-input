@@ -71,6 +71,15 @@ gdbus call --session --dest dev.sinty.Input1 --object-path /dev/sinty/Input1 \
   --method dev.sinty.Input1.SelectEngine pinyin
 ```
 
+## IBus
+
+`sinty-input ibus` runs the same engines as IBus engines, named
+`sinty-` followed by the engine name, so they can be used on GNOME and
+other desktops that use IBus, next to engines such as ibus-rime.
+`make install` puts the component in `share/ibus/component`; IBus lists
+the engines after `ibus restart`, and `ibus engine sinty-pinyin` selects
+one. Options and learned phrases are shared with the D-Bus service.
+
 ## Building
 
 ```sh

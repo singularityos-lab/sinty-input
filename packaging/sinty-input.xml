@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component>
+  <name>dev.sinty.Input.IBus</name>
+  <description>Sinty input methods</description>
+  <exec>/usr/libexec/sinty-input ibus</exec>
+  <version>1</version>
+  <author>Sinty OS</author>
+  <license>GPL-3.0-only</license>
+  <homepage>https://github.com/singularityos-lab/sinty-input</homepage>
+  <textdomain>sinty-input</textdomain>
+  <engines exec="/usr/libexec/sinty-input ibus-engines"/>
+</component>

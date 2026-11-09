@@ -109,3 +109,12 @@ func Apply(engines []engine.Engine, c config.Config) {
 		cfg.Configure(o)
 	}
 }
+
+func New(name string) engine.Engine {
+	for _, e := range Engines() {
+		if e.Info().Name == name {
+			return e
+		}
+	}
+	return nil
+}

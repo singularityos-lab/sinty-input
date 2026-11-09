@@ -8,6 +8,7 @@ import (
 
 	"github.com/godbus/dbus/v5"
 
+	"github.com/singularityos-lab/sinty-input/internal/bijoy"
 	"github.com/singularityos-lab/sinty-input/internal/engine"
 	"github.com/singularityos-lab/sinty-input/internal/hangul"
 	"github.com/singularityos-lab/sinty-input/internal/kana"
@@ -24,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	engines := []engine.Engine{pinyin.New(), kana.New(), hangul.New(), telex.New(), simlish.New()}
+	engines := []engine.Engine{pinyin.New(), kana.New(), hangul.New(), telex.New(), bijoy.New(), simlish.New()}
 	if _, err := service.Export(conn, engines); err != nil {
 		log.Fatal(err)
 	}

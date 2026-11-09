@@ -8,12 +8,31 @@ external input method framework.
 
 | Name | Language | Typing |
 |---|---|---|
-| `pinyin` | Chinese (simplified) | Pinyin without tones; `v` for `ü`, `'` to split syllables. Whole sentences are segmented into the most likely words. |
+| `pinyin` | Chinese | Pinyin without tones; `v` for `ü`, `'` to split syllables. Whole sentences are segmented into the most likely words. |
+| `shuangpin-xiaohe`, `shuangpin-ziranma`, `shuangpin-microsoft`, `shuangpin-sogou`, `shuangpin-abc`, `shuangpin-ziguang` | Chinese | Shuangpin: two keys for every syllable, with the layouts of Xiaohe, Ziranma, Microsoft, Sogou, Intelligent ABC and Ziguang. |
+| `zhuyin` | Chinese (traditional) | Zhuyin (Bopomofo) on the standard layout; `3 4 6 7` type the tones, which end a syllable. Digits pick candidates after Up or Down. |
+| `jyutping` | Cantonese | Jyutping without tones. |
+| `wubi86`, `wubi98`, `wubi-ng` | Chinese (simplified) | Wubi 86, 98 and New Generation. A full code with one candidate is typed at once, `z` matches any key. |
+| `cangjie3`, `cangjie5` | Chinese (traditional) | Cangjie 3 and 5, with the radicals shown while typing; `*` matches any key. |
+| `quick` | Chinese (traditional) | Quick (Sucheng). |
+| `array30` | Chinese (traditional) | Array 30. |
+| `zhengma` | Chinese (simplified) | Zhengma. |
+| `table-NAME` | | Every other dictionary of type `table` found in the dictionary folders. |
 | `kana` | Japanese | Romaji to hiragana. Space converts to kanji, including verbs with their okurigana; katakana is always offered. `nn` or `n'` types `ん`. |
 | `hangul` | Korean | Dubeolsik (two-set) layout, with syllable composition and compound vowels and finals. |
 | `telex` | Vietnamese | Telex: `s f r x j` for the tones, `z` to remove one, `aa ee oo aw ow uw dd` for the letters. |
 | `bijoy` | Bengali | Bijoy layout: keys type letters directly, `g` joins consonants (`g` twice shows the hasanta), `d c C` are typed before the consonant, `A` after it for the reph, `g` before a vowel sign types the vowel. |
 | `simlish` | Simlish | Every word turns into Simlish when you finish it; `hello` is `sul sul`, `goodbye` is `dag dag`. |
+
+Phonetic and table methods remember the candidates you choose and offer
+them first next time; a sentence built from several choices is learned as a
+new phrase. What they learn stays in
+`~/.local/share/sinty-input/user`, one dictionary per method, and can be
+listed, edited, exported, imported and cleared over D-Bus. Every Chinese
+method can convert what it types to simplified or traditional characters,
+with the Taiwan and Hong Kong variants, and every Chinese, Japanese and
+Korean method types full width punctuation unless it is turned off. These
+options are kept in `~/.config/sinty-input/config.json`.
 
 While candidates are shown, Space or Down selects the next one, Up the
 previous one, Page Up and Page Down turn the page, a digit picks from the
@@ -39,6 +58,13 @@ The service owns `dev.sinty.Input1` on the session bus at
 | `Commit(text)` | signal `s` | |
 | `Preedit(text, cursor)` | signal `si` | |
 | `Candidates(items, labels, selected, previous, next, auxiliary)` | signal `asasibbs` | Empty `items` hides the list. |
+| `Methods()` | out `a(ssssa{sv})` | Name, label, symbol, language and options of every engine: `kind`, `dictionary`, `dictionaries`, `conversion`, `conversions`, `fullwidth`, `learn`, `learned`. |
+| `Configure(name, options)` | in `sa{sv}` | Sets `conversion` (`none`, `simplified`, `traditional`, `taiwan`, `hongkong`), `fullwidth`, `learn` or `dictionary`. |
+| `Dictionaries()` | out `a(sssssb)` | Name, type, language, title, license and whether it is the user's. |
+| `UserEntries(name)` | in `s`, out `a(ssi)` | What a method has learned: code, text and weight. |
+| `UserSet(name, code, text, weight)`, `UserRemove(name, code, text)`, `UserClear(name)` | | Edits what a method has learned. |
+| `UserExport(name, path)`, `UserImport(name, path)` | in `ss`, out of import `u` | Saves to or merges from a dictionary file. |
+| `Reload()` | | Looks for dictionaries again, after one is added or removed. |
 
 ```sh
 gdbus call --session --dest dev.sinty.Input1 --object-path /dev/sinty/Input1 \

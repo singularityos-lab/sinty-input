@@ -9,15 +9,10 @@ import (
 
 	"github.com/godbus/dbus/v5"
 
-	"github.com/singularityos-lab/sinty-input/internal/bijoy"
 	"github.com/singularityos-lab/sinty-input/internal/cli"
-	"github.com/singularityos-lab/sinty-input/internal/engine"
-	"github.com/singularityos-lab/sinty-input/internal/hangul"
-	"github.com/singularityos-lab/sinty-input/internal/kana"
-	"github.com/singularityos-lab/sinty-input/internal/pinyin"
+	"github.com/singularityos-lab/sinty-input/internal/registry"
 	"github.com/singularityos-lab/sinty-input/internal/service"
-	"github.com/singularityos-lab/sinty-input/internal/simlish"
-	"github.com/singularityos-lab/sinty-input/internal/telex"
+	"github.com/singularityos-lab/sinty-input/internal/userdict"
 )
 
 func main() {
@@ -30,10 +25,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	engines := []engine.Engine{pinyin.New(), kana.New(), hangul.New(), telex.New(), bijoy.New(), simlish.New()}
-	if _, err := service.Export(conn, engines); err != nil {
+	engines := registry.Engines()
+	svc, err := service.Export(conn, engines)
+	if err != nil {
 		log.Fatal(err)
 	}
+	svc.Rebuild = registry.Engines
 	reply, err := conn.RequestName(service.Name, dbus.NameFlagDoNotQueue)
 	if err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
 		log.Fatalf("%s is taken", service.Name)
@@ -42,4 +39,5 @@ func main() {
 	defer stop()
 	log.Printf("serving %s with %d engines", service.Name, len(engines))
 	<-ctx.Done()
+	userdict.FlushAll()
 }

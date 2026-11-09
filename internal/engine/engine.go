@@ -84,3 +84,19 @@ func Runes(s string) int {
 	}
 	return n
 }
+
+type Options struct {
+	Conversion string
+	FullWidth  bool
+	Learn      bool
+	Dictionary string
+}
+
+func DefaultOptions() Options {
+	return Options{FullWidth: true, Learn: true}
+}
+
+type Configurable interface {
+	Configure(o Options)
+	Options() Options
+}

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/singularityos-lab/sinty-input/internal/convert"
 	"github.com/singularityos-lab/sinty-input/internal/dict"
 	"github.com/singularityos-lab/sinty-input/internal/dict/importer"
 )
@@ -275,7 +276,79 @@ var tables = []table{
 	{"zhengma.txt", "fcitx", "zh-zhengma", "Zhengma", "zh-Hans", "", "", "*", "yes", "LicenseRef-public-domain", "https://github.com/fcitx/fcitx5-table-extra"},
 }
 
-func importTable(src string, t table, out string) error {
+type usage struct {
+	words map[string]float64
+	chars map[rune]float64
+	t2s   *dict.Dict
+	s2t   *dict.Dict
+}
+
+func loadUsage(src string) (*usage, error) {
+	words, err := wordFrequencies(filepath.Join(src, "dict.txt"))
+	if err != nil {
+		return nil, err
+	}
+	chars, err := frequencies(filepath.Join(src, "Unihan_Readings.txt"))
+	if err != nil {
+		return nil, err
+	}
+	load := func(files ...string) (*dict.Dict, error) {
+		d := dict.New("", nil)
+		for _, file := range files {
+			f, err := os.Open(filepath.Join(src, file))
+			if err != nil {
+				return nil, err
+			}
+			s := bufio.NewScanner(f)
+			s.Buffer(make([]byte, 1<<16), 1<<20)
+			for s.Scan() {
+				k, v, ok := strings.Cut(s.Text(), "\t")
+				if ok && !strings.HasPrefix(k, "#") && len(strings.Fields(v)) > 0 {
+					d.Add(k, strings.Fields(v)[0], 0)
+				}
+			}
+			f.Close()
+		}
+		return d, nil
+	}
+	t2s, err := load("TSPhrases.txt", "TSCharacters.txt")
+	if err != nil {
+		return nil, err
+	}
+	s2t, err := load("STCharacters.txt")
+	if err != nil {
+		return nil, err
+	}
+	return &usage{words, chars, t2s, s2t}, nil
+}
+
+func (u *usage) weight(text string, traditional bool) int {
+	simple := convert.Pass(text, u.t2s)
+	f := u.words[text]
+	if traditional || f == 0 {
+		f = max(f, u.words[simple])
+	}
+	if f == 0 && len([]rune(text)) == 1 {
+		r := []rune(text)[0]
+		f = u.chars[r]
+		if f == 0 {
+			f = u.chars[[]rune(convert.Pass(text, u.t2s))[0]]
+		}
+		f /= 2
+	}
+	for _, r := range text {
+		if r > 0xffff {
+			return 0
+		}
+	}
+	w := 1 + int(math.Round(math.Log1p(f)*10))
+	if traditional && simple == text && convert.Pass(text, u.s2t) != text {
+		w /= 3
+	}
+	return w
+}
+
+func importTable(src string, t table, out string, u *usage) error {
 	f, err := os.Open(filepath.Join(src, t.file))
 	if err != nil {
 		return err
@@ -305,6 +378,21 @@ func importTable(src string, t table, out string) error {
 	set("autocommit", t.autocommit)
 	set("license", t.license)
 	set("source", t.source)
+	weighted := false
+	d.Each(func(_ string, list []dict.Entry) {
+		for _, e := range list {
+			if e.Weight != 0 {
+				weighted = true
+			}
+		}
+	})
+	if !weighted {
+		d.Each(func(code string, list []dict.Entry) {
+			for _, e := range list {
+				d.Set(code, e.Text, u.weight(e.Text, t.language == "zh-Hant"))
+			}
+		})
+	}
 	if t.format == "rime" {
 		var drop []dict.Entry
 		d.Each(func(code string, list []dict.Entry) {
@@ -434,8 +522,17 @@ func main() {
 	run("zh-pinyin", func() error {
 		return chinese(filepath.Join(*src, "cedict.txt.gz"), filepath.Join(*src, "Unihan_Readings.txt"), filepath.Join(*src, "dict.txt"), *out)
 	})
+	var u *usage
 	for _, t := range tables {
-		run(t.name, func() error { return importTable(*src, t, *out) })
+		run(t.name, func() error {
+			if u == nil {
+				var err error
+				if u, err = loadUsage(*src); err != nil {
+					return err
+				}
+			}
+			return importTable(*src, t, *out, u)
+		})
 	}
 	run("yue-jyutping", func() error { return cantonese(*src, *out) })
 	for _, c := range conversions {

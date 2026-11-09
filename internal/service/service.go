@@ -26,6 +26,7 @@ type Service struct {
 	engines []engine.Engine
 	active  engine.Engine
 	props   *prop.Properties
+	Rebuild func() []engine.Engine
 }
 
 type signals struct {

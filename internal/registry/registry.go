@@ -40,6 +40,8 @@ func Phonetic() []phonetic.Scheme {
 		phonetic.Scheme{Name: "zhuyin", Label: "Chinese (Zhuyin)", Symbol: "注", Language: "zh-Hant", Dict: "zh-pinyin",
 			Spelling: func(s map[string]bool) phonetic.Spelling { return phonetic.NewZhuyin(s) }, Defaults: zhuyin},
 		phonetic.Scheme{Name: "jyutping", Label: "Cantonese (Jyutping)", Symbol: "粤", Dict: "yue-jyutping", Spelling: alpha, Defaults: defaults},
+		phonetic.Scheme{Name: "kana", Label: "Japanese", Symbol: "あ", Language: "ja", Dict: "ja-kana",
+			Spelling: func(map[string]bool) phonetic.Spelling { return kana.Spelling{} }, Defaults: defaults, Glued: true, Rank: kana.Rank},
 	)
 	return out
 }
@@ -66,7 +68,7 @@ func Engines() []engine.Engine {
 	for _, s := range Phonetic() {
 		all = append(all, phonetic.New(s))
 	}
-	all = append(all, kana.New(), hangul.New(), telex.New(), bijoy.New(), simlish.New())
+	all = append(all, hangul.New(), telex.New(), bijoy.New(), simlish.New())
 	used := map[string]bool{}
 	for _, s := range Tables() {
 		used[s.Dict] = true

@@ -19,6 +19,8 @@ type Scheme struct {
 	Dict     string
 	Spelling func(syllables map[string]bool) Spelling
 	Defaults engine.Options
+	Glued    bool
+	Rank     func(d *dict.Dict, reading string, words []string) ([]string, bool)
 }
 
 type choice struct {
@@ -100,6 +102,13 @@ func (e *Engine) Options() engine.Options {
 	return e.opts
 }
 
+func (e *Engine) join(segs []string) string {
+	if e.scheme.Glued {
+		return strings.Join(segs, "")
+	}
+	return strings.Join(segs, " ")
+}
+
 func (e *Engine) composing() bool {
 	return e.input != "" || len(e.chosen) > 0
 }
@@ -140,7 +149,7 @@ func (e *Engine) best(segs []string) string {
 	for i := 1; i <= n; i++ {
 		score[i] = unreachable
 		for j := 0; j < i; j++ {
-			key := strings.Join(segs[j:i], " ")
+			key := e.join(segs[j:i])
 			if score[j] == unreachable || !e.known(key) {
 				continue
 			}
@@ -154,7 +163,7 @@ func (e *Engine) best(segs []string) string {
 	}
 	var words []string
 	for i := n; i > 0; i = from[i] {
-		words = append([]string{e.words(strings.Join(segs[from[i]:i], " "))[0]}, words...)
+		words = append([]string{e.words(e.join(segs[from[i]:i]))[0]}, words...)
 	}
 	return strings.Join(words, "")
 }
@@ -177,11 +186,19 @@ func (e *Engine) refresh() {
 	if !complete {
 		whole--
 	}
-	if whole > 1 && !e.known(strings.Join(segs[:whole], " ")) {
+	var ranked []string
+	inflected := false
+	if e.scheme.Rank != nil && whole > 0 {
+		ranked, inflected = e.scheme.Rank(e.d, e.join(segs[:whole]), e.words(e.join(segs[:whole])))
+	}
+	if whole > 1 && !inflected && !e.known(e.join(segs[:whole])) {
 		add(e.best(segs[:whole]), whole)
 	}
+	for _, w := range ranked {
+		add(w, whole)
+	}
 	for n := whole; n >= 1; n-- {
-		for _, w := range e.words(strings.Join(segs[:n], " ")) {
+		for _, w := range e.words(e.join(segs[:n])) {
 			add(w, n)
 		}
 	}
@@ -219,7 +236,7 @@ func (e *Engine) choose(out engine.Output) {
 		return
 	}
 	word, span := e.list.Current(), e.spans[e.list.Selected]
-	code := strings.Join(e.segs[:span], " ")
+	code := e.join(e.segs[:span])
 	rest := e.consume(span)
 	e.chosen = append(e.chosen, choice{word, e.input[:len(e.input)-len(rest)], code})
 	e.input = rest
@@ -244,7 +261,7 @@ func (e *Engine) learn() {
 		}
 	}
 	if len(e.chosen) > 1 {
-		e.user.Learn(strings.Join(codes, " "), e.prefix())
+		e.user.Learn(e.join(codes), e.prefix())
 	}
 }
 
@@ -365,7 +382,14 @@ func (e *Engine) Key(k engine.Key, out engine.Output) bool {
 	return false
 }
 
+type literal interface {
+	Literal(input string) string
+}
+
 func (e *Engine) literal(input string) string {
+	if l, ok := e.sp.(literal); ok {
+		return l.Literal(input)
+	}
 	if _, ok := e.sp.(*Zhuyin); ok {
 		return e.sp.Display(input)
 	}

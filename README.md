@@ -18,7 +18,7 @@ external input method framework.
 | `array30` | Chinese (traditional) | Array 30. |
 | `zhengma` | Chinese (simplified) | Zhengma. |
 | `table-NAME` | | Every other dictionary of type `table` found in the dictionary folders. |
-| `kana` | Japanese | Romaji to hiragana. Space converts to kanji, including verbs with their okurigana; katakana is always offered. `nn` or `n'` types `ん`. |
+| `kana` | Japanese | Romaji typed as hiragana, with kanji candidates shown while typing, including verbs with their okurigana; the hiragana and katakana forms are always offered. `nn` or `n'` types `ん`. |
 | `hangul` | Korean | Dubeolsik (two-set) layout, with syllable composition and compound vowels and finals. |
 | `telex` | Vietnamese | Telex: `s f r x j` for the tones, `z` to remove one, `aa ee oo aw ow uw dd` for the letters. |
 | `bijoy` | Bengali | Bijoy layout: keys type letters directly, `g` joins consonants (`g` twice shows the hasanta), `d c C` are typed before the consonant, `A` after it for the reph, `g` before a vowel sign types the vowel. |
